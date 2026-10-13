@@ -171,6 +171,7 @@ Without `SELENIUM_REMOTE_URL`, Selenium uses a local Chrome, downloading chromed
 
 * `LOCATION` is the full domain to install at. The location-change step also uses `<first label>2.<rest>`, e.g. `peergos-test2.example.com`.
 * `IMAGE` installs and updates a pushed image instead of building on the server.
+* `P2P_PORT` sets the host port for P2P (TCP and UDP). Use it when another Peergos on the server already has 4001.
 * `VERSIONS_URL` (the hosted `CloudronVersions.json`) adds an update test: install the published version, create data, update to this build, check the data.
 * `SHOW_BROWSER=1` shows the browser instead of running headless (local Chrome only). Screenshots of failed steps land in `test/screenshots/`.
 

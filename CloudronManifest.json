@@ -6,7 +6,7 @@
   "description": "file://DESCRIPTION.md",
   "postInstallMessage": "file://POSTINSTALL.md",
   "changelog": "file://CHANGELOG",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "upstreamVersion": "1.37.0",
   "website": "https://peergos.org",
   "upstreamLicense": {
@@ -81,7 +81,7 @@
       "message": "Create the first account with the signup link from the app logs (search for `signup=true` and remove the `:8000` from the link)"
     },
     "add-wildcard-alias": {
-      "message": "Add a wildcard alias domain (`*.` in front of this app's domain). The built-in apps (PDF viewer, calendar, editor, ...) and third-party apps load from subdomains of the app's domain, and Cloudron doesn't add the alias by itself"
+      "message": "Add a wildcard alias for this app's own hostname, e.g. `*.peergos.example.com` for an app at peergos.example.com (not `*.example.com`). The built-in apps (PDF viewer, calendar, editor, ...) and third-party apps load from its subdomains, and Cloudron doesn't add the alias by itself"
     }
   }
 }

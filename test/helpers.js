@@ -75,11 +75,13 @@ function cloudron(args, { capture = false } = {}) {
 }
 
 const imageArg = IMAGE ? ` --image ${IMAGE}` : '';
+// Host port for P2P over TCP and UDP. Needed when another Peergos on the server already has 4001.
+const portArg = process.env.P2P_PORT ? ` -p IPFS_TCP_PORT=${process.env.P2P_PORT},IPFS_UDP_PORT=${process.env.P2P_PORT}` : '';
 
 export const cloudronCli = {
     // Without IMAGE the package is built on the server from this directory
-    install() { cloudron(`install --location ${app.fqdn}${imageArg}`); },
-    installFromVersions(versionsUrl) { cloudron(`install --location ${app.fqdn} --versions-url ${versionsUrl}`); },
+    install() { cloudron(`install --location ${app.fqdn}${portArg}${imageArg}`); },
+    installFromVersions(versionsUrl) { cloudron(`install --location ${app.fqdn}${portArg} --versions-url ${versionsUrl}`); },
     // --force: an app installed from CloudronVersions.json changes its source when it moves to this build
     update() { cloudron(`update --app ${app.fqdn} --force${imageArg}`); },
     uninstall() { cloudron(`uninstall --app ${app.fqdn}`); },
