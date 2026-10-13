@@ -1,0 +1,12 @@
+{
+  "name": "peergos-app-test",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "mocha --bail --timeout 900000 test.js"
+  },
+  "devDependencies": {
+    "mocha": "^12.0.3",
+    "selenium-webdriver": "^4.51.0"
+  }
+}

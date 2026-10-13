@@ -1,0 +1,14 @@
+[0.1.0]
+* Initial package of Peergos 1.37.0
+
+[0.2.0]
+* Settings now live in /app/data/env.sh, editable with the File Manager
+* Set a UTF-8 locale for the JVM
+
+[1.0.0]
+* First published version, for Peergos 1.37.0
+* Java now comes from Ubuntu's openjdk-25 package
+* The logs warn when Peergos creates a database that backups don't handle yet
+* Fixed the quota command in env.sh, which could leave files the app can't write
+* App id is dev.tripod0429.peergos-app, to make clear this package is unofficial
+* Logs only warnings and errors by default; set PEERGOS_LOG_LEVEL=INFO in env.sh for more

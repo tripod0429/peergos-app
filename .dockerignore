@@ -1,0 +1,17 @@
+.git
+.github/
+.gitignore
+.dockerignore
+.claude/
+.agents/
+skills-lock.json
+AGENTS.md
+README.md
+LICENSE
+CloudronVersions.json
+logo.png
+screenshots/
+test/
+node_modules/
+reference/
+*.log

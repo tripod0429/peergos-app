@@ -1,0 +1,75 @@
+# Builds the image on every push to main and every pull request, so a broken
+# Dockerfile shows up before a release. A v<version> tag also pushes the image
+# to ghcr.io as <version>, ready for `cloudron versions add --image`.
+name: Build image
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}
+      RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read version from CloudronManifest.json
+        id: version
+        run: |
+          version=$(jq -r .version CloudronManifest.json)
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          if [[ "${RELEASE}" == true && "${GITHUB_REF_NAME}" != "v${version}" ]]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} doesn't match version ${version} in CloudronManifest.json"
+            exit 1
+          fi
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        if: env.RELEASE == 'true'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # A published version's image must never change under the people who installed it
+      - name: Refuse to overwrite an existing release
+        if: env.RELEASE == 'true'
+        run: |
+          if docker manifest inspect "${IMAGE}:${{ steps.version.outputs.version }}" > /dev/null 2>&1; then
+            echo "::error::${IMAGE}:${{ steps.version.outputs.version }} already exists. Bump the version instead."
+            exit 1
+          fi
+
+      - uses: docker/build-push-action@v7
+        id: build
+        with:
+          context: .
+          platforms: linux/amd64
+          push: ${{ env.RELEASE == 'true' }}
+          tags: ${{ env.IMAGE }}:${{ steps.version.outputs.version }}
+          # A plain single-platform image, the same as a local podman push. Without
+          # this, buildx wraps it in an index with an extra attestation entry.
+          provenance: false
+
+      - name: Summary
+        if: env.RELEASE == 'true'
+        run: |
+          {
+            echo "Pushed \`${IMAGE}:${{ steps.version.outputs.version }}\` (digest \`${{ steps.build.outputs.digest }}\`)."
+            echo
+            echo "Next: run the tests against it, then:"
+            echo
+            echo '```'
+            echo "cloudron versions add --image ${IMAGE}:${{ steps.version.outputs.version }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
