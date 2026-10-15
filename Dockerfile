@@ -18,8 +18,8 @@ RUN apt-get update && \
     rm -rf /var/cache/apt /var/lib/apt/lists && \
     java -version
 
-ARG PEERGOS_VERSION=1.37.0
-ARG PEERGOS_SHA256=707a608e5841ccb56d201630ebc105982e08c35d9560c648781872ebf04a883b
+ARG PEERGOS_VERSION=1.38.0
+ARG PEERGOS_SHA256=a9cb99f3cf2814a6da4115e831af9d3e050a45f824466f4bf34f2f548d8a07cf
 
 # The native libraries are extracted at build time so Peergos never has to
 # write them to a temp dir at runtime (same approach as upstream's Containerfile).

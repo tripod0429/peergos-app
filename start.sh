@@ -56,15 +56,12 @@ fi
 
 # --- P2P listeners -----------------------------------------------------------
 # Peergos' default listeners are [::]:4001 over TCP and QUIC (dual stack). That
-# fails if the container has no IPv6 stack. -ipfs-swarm-addrs can't express a
-# QUIC address (Peergos' own multiaddr parser rejects "quic-v1"), so the IPv4
-# fallback is TCP only.
-quic=true
+# fails if the container has no IPv6 stack, so fall back to the same listeners
+# on IPv4 (Peergos accepts quic-v1 in -ipfs-swarm-addrs since 1.38.0).
 swarm_args=()
 if [[ ! -e /proc/net/if_inet6 ]]; then
-    quic=false
-    swarm_args=(-ipfs-swarm-addrs /ip4/0.0.0.0/tcp/4001)
-    log "No IPv6 stack in the container: P2P listens on TCP 4001 only (QUIC disabled)"
+    swarm_args=(-ipfs-swarm-addrs "/ip4/0.0.0.0/tcp/4001,/ip4/0.0.0.0/udp/4001/quic-v1")
+    log "No IPv6 stack in the container: P2P listens on IPv4 only"
 fi
 
 # --- Announce addresses ------------------------------------------------------
@@ -82,7 +79,7 @@ fi
 announce=()
 if [[ -n "${public_ip}" && "${public_ip}" != none ]]; then
     [[ -n "${IPFS_TCP_PORT:-}" ]] && announce+=("/ip4/${public_ip}/tcp/${IPFS_TCP_PORT}")
-    [[ -n "${IPFS_UDP_PORT:-}" && "${quic}" == true ]] && announce+=("/ip4/${public_ip}/udp/${IPFS_UDP_PORT}/quic-v1")
+    [[ -n "${IPFS_UDP_PORT:-}" ]] && announce+=("/ip4/${public_ip}/udp/${IPFS_UDP_PORT}/quic-v1")
 fi
 announce_args=()
 if (( ${#announce[@]} > 0 )); then

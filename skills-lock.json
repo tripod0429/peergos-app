@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "skills": {
+    "cloudron-app-packaging": {
+      "source": "https://git.cloudron.io/docs/skills.git",
+      "sourceUrl": "https://git.cloudron.io/docs/skills.git",
+      "sourceType": "git",
+      "skillPath": "cloudron-app-packaging/SKILL.md",
+      "computedHash": "f76e282397b7f9789eeb5e91f2ddcce01a20ab8b9671ef767f277f67eba10789"
+    },
+    "cloudron-app-publishing": {
+      "source": "https://git.cloudron.io/docs/skills.git",
+      "sourceUrl": "https://git.cloudron.io/docs/skills.git",
+      "sourceType": "git",
+      "skillPath": "cloudron-app-publishing/SKILL.md",
+      "computedHash": "fc62d36517ae3a85e44c9d49a49ff3eb066915df27063fe5f5c5a6a7d565d600"
+    },
+    "cloudron-server-ops": {
+      "source": "https://git.cloudron.io/docs/skills.git",
+      "sourceUrl": "https://git.cloudron.io/docs/skills.git",
+      "sourceType": "git",
+      "skillPath": "cloudron-server-ops/SKILL.md",
+      "computedHash": "72eed6076533719932f289b443d435f9041243e5c7516dbfd901326875bfad71"
+    }
+  }
+}

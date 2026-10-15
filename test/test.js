@@ -27,10 +27,11 @@ describe('Application life cycle test', function () {
     });
 
     // Finds Vue components from a script by walking the component tree from #app, breadth
-    // first, so the shallowest match wins. Peergos 1.37 ships Vue 2, where the root instance
-    // is on #app.__vue__ and children are in $children. Upstream's master has moved to Vue 3,
-    // which keeps no instance on elements in a production build, so for that the walk goes
-    // through vnodes the way upstream's own tests do (Peergos/web-ui browser_tests/Page.java).
+    // first, so the shallowest match wins. Peergos 1.38 ships Vue 3, which keeps no instance
+    // on elements in a production build, so the walk goes through vnodes the way upstream's
+    // own tests do (Peergos/web-ui browser_tests/Page.java). Peergos 1.37 and older ship Vue 2,
+    // where the root instance is on #app.__vue__ and children are in $children. The update test
+    // still starts from such a version.
     const VUE = `(window.__pgVue || (window.__pgVue = {
         root() {
             const a = document.querySelector('#app');

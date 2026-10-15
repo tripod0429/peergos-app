@@ -9,7 +9,7 @@ The server only ever sees encrypted data, and your identity is not tied to one s
 ### Features
 
 * File storage and sharing, with secret links
-* Calendar
+* Calendar and address book
 * Social feed
 * Private websites
 * Sandboxed third-party apps

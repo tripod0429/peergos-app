@@ -4,7 +4,7 @@
 > This is an unofficial community package. It is not affiliated with or endorsed by Peergos or Cloudron.
 > The packaging (Dockerfile, scripts, manifest, tests and docs) was written with the help of Claude, an AI model by Anthropic, and tested on a real Cloudron server.
 
-Cloudron package for [Peergos](https://peergos.org) 1.37.0, built on `cloudron/base:6.0.0` with Ubuntu's OpenJDK 25 JRE.
+Cloudron package for [Peergos](https://peergos.org) 1.38.0, built on `cloudron/base:6.0.0` with Ubuntu's OpenJDK 25 JRE.
 
 To install it, add this URL under Community apps in your Cloudron dashboard settings:
 
@@ -106,7 +106,7 @@ export PEERGOS_ADMIN_USERNAMES=alice
 * **Backups.** The SQLite databases are listed under `localstorage.sqlite.paths`, so Cloudron backs them up consistently instead of copying live files. That list is the only one: `start.sh` reads it from the manifest (copied into the image) and creates any listed file that is missing, because a listed file that doesn't exist breaks backups. It also logs a warning for any `*.sql`/`*.sqlite` file in `/app/data/peergos` or `.ipfs/datastore` that isn't listed, which is how a database added by a new Peergos release shows up.
 * **Not in the list on purpose.** `reachability/reachability-<username>.sqlite` are per-user indexes for Peergos' garbage collector. Their names depend on the users, so they can't be listed, and they are backed up as plain files. Peergos rebuilds them from the blockstore, so the worst case after a restore is a stale index. If garbage collection logs SQLite errors after a restore, stop the app, delete `/app/data/peergos/reachability`, and start it again.
 * **`thumbnailer.log`.** Peergos runs thumbnail generation in a separate JVM and appends that process's stderr to `/app/data/peergos/thumbnailer.log`. It grows a few hundred bytes per worker start, so it can safely be deleted at any time.
-* **P2P listeners.** By default Peergos listens on `[::]:4001` (TCP and QUIC), which fails without an IPv6 stack. In that case `start.sh` falls back to IPv4 TCP only. QUIC can't be configured on IPv4 because Peergos' `-ipfs-swarm-addrs` parser rejects `quic-v1`.
+* **P2P listeners.** By default Peergos listens on `[::]:4001` (TCP and QUIC), which fails without an IPv6 stack. In that case `start.sh` passes the same two listeners on IPv4 with `-ipfs-swarm-addrs`. That needs Peergos 1.38.0 or later: older parsers rejected `quic-v1`, so the fallback used to be TCP only.
 * **Announce flag.** The self-hosting docs show `-announce-ipfs-addresses`, but the code reads `-ipfs-announce-addresses`. Peergos ignores unknown flags silently, so the documented spelling has no effect.
 * **Logging.** Peergos and its IPFS library log through one `java.util.logging` logger. At INFO that includes two lines for every request relayed to another Peergos node: about 5,000 lines in the first minute after install. `start.sh` writes `/run/peergos-logging.properties` on each start, with the level from `PEERGOS_LOG_LEVEL` (default WARNING) and one line per record. The startup, version and signup-link lines are printed directly, so they show at every level.
 * **Health check.** Peergos rejects requests whose `Host` header isn't its domain. The health check relies on Cloudron sending the app's domain as `Host`. If the dashboard shows the app as not responding while it works in the browser, start investigating here.
