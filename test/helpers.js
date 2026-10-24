@@ -86,6 +86,9 @@ export const cloudronCli = {
     update() { cloudron(`update --app ${app.fqdn} --force${imageArg}`); },
     uninstall() { cloudron(`uninstall --app ${app.fqdn}`); },
     restart() { cloudron(`restart --app ${app.fqdn}`); },
+    // For an app that won't pass its health check
+    restartNoWait() { cloudron(`--no-wait restart --app ${app.fqdn}`); },
+    exec(command) { cloudron(`exec --app ${app.fqdn} -- ${command}`); },
     createBackup() { cloudron(`backup create --app ${app.fqdn}`); },
     restoreFromLatestBackup() { cloudron(`restore --app ${app.fqdn}`); },
     changeLocation(newFqdn) {

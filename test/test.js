@@ -129,6 +129,19 @@ describe('Application life cycle test', function () {
         assert.ok(signupTokens().length <= tokenCount, 'Peergos printed another signup link after the first start');
     }
 
+    // start.sh keeps Peergos stopped when the data belongs to another app, as in a clone
+    async function holdsCopiedData() {
+        cloudronCli.exec(`sh -c 'echo another-app > /app/data/cloudron-app-id'`);
+        cloudronCli.restartNoWait();
+        await browser.wait(() => cloudronCli.logs(2000).includes('comes from another Cloudron app'), SLOW,
+            'start.sh did not hold Peergos for data from another app');
+    }
+
+    function confirmMove() {
+        cloudronCli.exec('rm /app/data/cloudron-app-id');
+        cloudronCli.restart();
+    }
+
     it('install app', cloudronCli.install);
 
     it('can sign up with the token from the logs', signUp);
@@ -155,6 +168,13 @@ describe('Application life cycle test', function () {
     it('can log out', logout);
 
     it('move to different location', function () { cloudronCli.changeLocation(MOVED_FQDN); });
+
+    it('can log in', login);
+    it('sees the folder', checkFolder);
+    it('can log out', logout);
+
+    it('holds Peergos when the data comes from another app', holdsCopiedData);
+    it('starts again once the move is confirmed', confirmMove);
 
     it('can log in', login);
     it('sees the folder', checkFolder);

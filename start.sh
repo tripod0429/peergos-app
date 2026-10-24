@@ -8,6 +8,30 @@ log() { echo "==> $*"; }
 
 mkdir -p "${PEERGOS_PATH}/.ipfs/datastore"
 
+# --- Copied data ---------------------------------------------------------------
+# The node's peer ID and private key are in ${config}, so a clone of this app,
+# or a backup imported into a new app, would come up as a second copy of the
+# same Peergos node and split its users' data. Remember which app the data
+# belongs to and hold if that changes. Restores, location changes, updates and
+# a full Cloudron restore keep the app id. CLOUDRON_APP_HOSTNAME is the app id
+# (undocumented); it's unset outside Cloudron, and then there's nothing to check.
+app_id="${CLOUDRON_APP_HOSTNAME:-}"
+id_file=/app/data/cloudron-app-id
+if [[ -n "${app_id}" ]]; then
+    if [[ -f "${id_file}" && "$(<"${id_file}")" != "${app_id}" ]]; then
+        log "This app's data comes from another Cloudron app ($(<"${id_file}")), not this one (${app_id})."
+        log "Peergos was not started: the peer ID is part of the data, so this copy would run as a second instance of the same Peergos node."
+        log "If this is a clone, uninstall it. If you moved Peergos here and the old app is gone, delete ${id_file} (File Manager or Web Terminal) and restart the app."
+        # Keep the container up for the File Manager and Web Terminal. A bare
+        # sleep as PID 1 would ignore SIGTERM and delay every stop.
+        trap 'exit 0' TERM INT
+        sleep infinity &
+        wait
+        exit 1
+    fi
+    echo "${app_id}" > "${id_file}"
+fi
+
 # --- User settings -------------------------------------------------------------
 # /app/data/env.sh is where admins change settings (File Manager, then restart).
 # It's created from a commented template on first start and never overwritten.

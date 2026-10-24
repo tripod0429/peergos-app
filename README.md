@@ -76,7 +76,7 @@ cloudron install --location peergos.example.com --alias-domains '*.peergos.examp
 cloudron logs -f --app peergos.example.com      # look for "signup=true"
 ```
 
-* **Wildcard alias.** Peergos serves its built-in apps (PDF viewer, calendar, editor, …) and sandboxed third-party apps from subdomains of the app domain. Cloudron doesn't add the alias by itself: pass `--alias-domains` as above, or add it under the app's Location settings in the dashboard. The wildcard certificate needs a DNS provider Cloudron can control through an API. If you can't use one, add `pdf`, `calendar`, `code-editor`, `markup-viewer`, `email` and `address-book` as individual aliases instead. Third-party apps won't work in that case.
+* **Wildcard alias.** Required. Peergos serves its built-in apps (PDF viewer, calendar, editor, …), the HTML viewer and sandboxed third-party apps from subdomains of the app domain. The HTML viewer and third-party apps get hashed subdomains, so individual aliases can't cover them. Cloudron doesn't add the alias by itself: pass `--alias-domains` as above, or add it under the app's Location settings in the dashboard. The wildcard certificate needs a DNS provider Cloudron can control through an API.
 * **Signup link.** Peergos prints it with `:8000` appended. Remove that before opening it.
 * **Firewall.** Port 4001 TCP and UDP must be reachable from the internet.
 
@@ -100,10 +100,20 @@ export PEERGOS_ADMIN_USERNAMES=alice
 | `PEERGOS_MAX_RAM_PERCENTAGE` | JVM heap as a share of the container's memory limit (default 60) |
 | `PEERGOS_LOG_LEVEL` | `SEVERE`, `WARNING` (default) or `INFO`. See Logging below |
 
+## Backup and restore
+
+* **What's covered.** All of `/app/data`: the databases, the blockstore with every user's encrypted files, and the node's identity (peer ID and private key, in `/app/data/peergos/config`). A restore brings the server back as the same Peergos node, so other servers and the global PKI keep finding it.
+* **Before you restore.** Stop Peergos sync on every device and copy each synced folder somewhere safe. Files uploaded since the backup are missing on the restored server, which looks like a deletion to the sync client, and by default it deletes the local copies too.
+* **What a restore can't undo.** The rest of the network keeps going. Accounts created since the backup stay registered in the global PKI, but the server no longer has them, and usernames can't be reused. Friendships with users on other servers made since the backup may be one-sided.
+* **Garbage collection.** Peergos frees space from deleted files on start and every 12 hours, while the app runs. If that lands during a backup, after a user changed files, it can delete blocks the backup still needs. Running the collection before each backup instead needs Peergos to work with its timer off, which it doesn't yet: with `-enable-gc false` the server can't mirror the PKI.
+* **Older Cloudron versions.** Until the fix for [this restore bug](https://forum.cloudron.io/topic/16125/sqlite-backups-restore-never-applies-the-dump-docker-run-without-i) (expected in Cloudron 10.1.6), a restore keeps the database files as the upload copied them while the app ran, not the snapshots Cloudron takes first. With the rsync backup format, a file written during a backup can then leave that user's account unusable after a restore.
+* **If a restore looks incomplete.** Keep several backups. If a user's files won't load after a restore, restore an older one.
+* **Clones and moves.** `start.sh` writes the app's Cloudron id to `/app/data/cloudron-app-id`. If the data turns up in a different app (a clone, or a backup imported into a new app), Peergos isn't started and the logs say why: two copies would run as the same Peergos node and split its users' data. If you moved Peergos and the old app is gone, delete that file with the File Manager and restart the app. Restores, location changes, updates and a full Cloudron restore keep the app id and aren't affected. Backups made before version 1.2.0 have no id file, so a clone of one isn't caught.
+
 ## Design notes
 
 * **Data.** Everything lives in `/app/data/peergos` (`PEERGOS_PATH`). Peergos writes its full command line to `config` there on first run and reuses it. `start.sh` passes the important flags on every start and removes the keys it manages from `config`, so a setting you remove doesn't linger.
-* **Backups.** The SQLite databases are listed under `localstorage.sqlite.paths`, so Cloudron backs them up consistently instead of copying live files. That list is the only one: `start.sh` reads it from the manifest (copied into the image) and creates any listed file that is missing, because a listed file that doesn't exist breaks backups. It also logs a warning for any `*.sql`/`*.sqlite` file in `/app/data/peergos` or `.ipfs/datastore` that isn't listed, which is how a database added by a new Peergos release shows up.
+* **Backups.** The SQLite databases are listed under `localstorage.sqlite.paths`, so Cloudron snapshots each one before it uploads the rest (older Cloudron versions don't restore those snapshots, see Backup and restore). That list is the only one: `start.sh` reads it from the manifest (copied into the image) and creates any listed file that is missing, because a listed file that doesn't exist breaks backups. It also logs a warning for any `*.sql`/`*.sqlite` file in `/app/data/peergos` or `.ipfs/datastore` that isn't listed, which is how a database added by a new Peergos release shows up.
 * **Not in the list on purpose.** `reachability/reachability-<username>.sqlite` are per-user indexes for Peergos' garbage collector. Their names depend on the users, so they can't be listed, and they are backed up as plain files. Peergos rebuilds them from the blockstore, so the worst case after a restore is a stale index. If garbage collection logs SQLite errors after a restore, stop the app, delete `/app/data/peergos/reachability`, and start it again.
 * **`thumbnailer.log`.** Peergos runs thumbnail generation in a separate JVM and appends that process's stderr to `/app/data/peergos/thumbnailer.log`. It grows a few hundred bytes per worker start, so it can safely be deleted at any time.
 * **P2P listeners.** By default Peergos listens on `[::]:4001` (TCP and QUIC), which fails without an IPv6 stack. In that case `start.sh` passes the same two listeners on IPv4 with `-ipfs-swarm-addrs`. That needs Peergos 1.38.0 or later: older parsers rejected `quic-v1`, so the fallback used to be TCP only.
@@ -154,7 +164,7 @@ Don't put `dockerImage` in `CloudronManifest.json`: `cloudron versions add` reco
 
 ## Running tests
 
-`test/test.js` follows the official Cloudron app tests. It installs the app, signs up through the browser with the token from the logs, creates a folder, then checks the folder survives a restart, a backup and restore, and a location change. It also checks that no new signup link appears after the first start, then uninstalls. It needs the `cloudron` CLI logged in to the server to test on.
+`test/test.js` follows the official Cloudron app tests. It installs the app, signs up through the browser with the token from the logs, creates a folder, then checks the folder survives a restart, a backup and restore, and a location change. It also checks that no new signup link appears after the first start, and that Peergos holds when `/app/data/cloudron-app-id` names another app and starts again once the file is deleted, then uninstalls. It needs the `cloudron` CLI logged in to the server to test on.
 
 The browser runs in the official Selenium container, so nothing browser-related is installed on the host. A local Chrome also can't start on hosts that preload `hardened_malloc`, such as secureblue. On secureblue, allow the image once with `run0 podman image trust set -t accept docker.io/selenium/standalone-chromium`.
 

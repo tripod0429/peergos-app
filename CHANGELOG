@@ -22,3 +22,9 @@
 * Login attempts are rate limited; devices that have logged in before keep their own budget
 * The address book loads from `address-book.<app hostname>`, which the wildcard alias already covers
 * On servers without IPv6, P2P now also listens on QUIC (UDP), not just TCP
+
+[1.2.0]
+* Update Peergos to 1.40.0 ([1.39.0](https://github.com/Peergos/web-ui/releases/tag/v1.39.0) and [1.40.0](https://github.com/Peergos/web-ui/releases/tag/v1.40.0) release notes), which includes security fixes for servers
+* A restart during the very first start no longer leaves a server that can't start again
+* A clone of the app, or a backup imported into a new app, no longer starts as a second copy of the same Peergos node until you confirm it (see Backup and restore in the README)
+* The wildcard alias is required: the HTML viewer and third-party apps use hashed subdomains, so the docs no longer suggest individual aliases instead

@@ -20,4 +20,4 @@ What upstream declares or tests against. Informational: a newer version is not a
 
 | Runtime | Upstream says | Source |
 |---|---|---|
-| Java | 25 (upstream image `eclipse-temurin:25-jre`). This package uses Ubuntu's `openjdk-25-jre-headless`. If Peergos ever needs a Java that Ubuntu 26.04 doesn't ship, switch to a Temurin tarball | https://github.com/Peergos/web-ui/blob/master/Containerfile |
+| Java | 25 (since 1.39 the upstream image builds a trimmed runtime with `jlink` from `eclipse-temurin:25-jdk`, on `debian:trixie-slim`). This package uses Ubuntu's `openjdk-25-jre-headless`. If Peergos ever needs a Java that Ubuntu 26.04 doesn't ship, switch to a Temurin tarball | https://github.com/Peergos/web-ui/blob/master/Containerfile |
