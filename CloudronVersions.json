@@ -186,6 +186,99 @@
             "creationDate": "Tue, 13 Oct 2026 12:16:32 GMT",
             "ts": "Tue, 13 Oct 2026 12:16:32 GMT",
             "publishState": "published"
+        },
+        "1.2.0": {
+            "manifest": {
+                "id": "dev.tripod0429.peergos-app",
+                "title": "Peergos",
+                "author": "Peergos Developers",
+                "tagline": "Private, end-to-end encrypted storage, sharing and social",
+                "description": "This is an unofficial community package. It is not affiliated with or endorsed by Peergos or Cloudron. The packaging was written with the help of Claude, an AI model by Anthropic. Package source: [github.com/tripod0429/peergos-app](https://github.com/tripod0429/peergos-app).\n\n### About\n\nPeergos is a peer-to-peer, end-to-end encrypted global filesystem with fine-grained access control.\n\nThe server only ever sees encrypted data, and your identity is not tied to one server: you can log in through any Peergos instance and interact with users on other servers.\n\n### Features\n\n* File storage and sharing, with secret links\n* Calendar and address book\n* Social feed\n* Private websites\n* Sandboxed third-party apps\n",
+                "postInstallMessage": "**Create the first account.** On first start Peergos prints a single-use signup link to the app logs. Look for the line containing `signup=true` and open it **without** the `:8000` that Peergos adds, i.e. `$CLOUDRON-APP-ORIGIN/?signup=true&token=...`. The first sync with the Peergos PKI can take a few minutes.\n\n**Add a wildcard alias.** The PDF viewer, calendar, editor, HTML viewer and third-party apps are served from subdomains of this app, some of them with hashed names. Add the alias `*.$CLOUDRON-APP-FQDN` under the app's Location settings. The wildcard certificate needs a DNS provider Cloudron can drive.\n\n**Peer-to-peer ports.** Allow port 4001 over TCP and UDP in any firewall in front of the server.\n\n**Settings** live in `/app/data/env.sh`. Edit it with the File Manager, then restart the app. Each setting is explained in the file; the most useful are `PEERGOS_ADMIN_USERNAMES` and `PEERGOS_DEFAULT_QUOTA` (1 GiB per user by default).\n",
+                "changelog": "* Update Peergos to 1.40.0 ([1.39.0](https://github.com/Peergos/web-ui/releases/tag/v1.39.0) and [1.40.0](https://github.com/Peergos/web-ui/releases/tag/v1.40.0) release notes), which includes security fixes for servers\n* A restart during the very first start no longer leaves a server that can't start again\n* A clone of the app, or a backup imported into a new app, no longer starts as a second copy of the same Peergos node until you confirm it (see Backup and restore in the README)\n* The wildcard alias is required: the HTML viewer and third-party apps use hashed subdomains, so the docs no longer suggest individual aliases instead\n",
+                "version": "1.2.0",
+                "upstreamVersion": "1.40.0",
+                "website": "https://peergos.org",
+                "upstreamLicense": {
+                    "name": "AGPL-3.0",
+                    "url": "https://github.com/Peergos/Peergos/blob/master/Licence.txt"
+                },
+                "contactEmail": "peergos-cloudron.1m67w@8shield.net",
+                "packagerName": "tripod0429",
+                "packagerUrl": "https://github.com/tripod0429",
+                "packageUrl": "https://github.com/tripod0429/peergos-app",
+                "documentationUrl": "https://github.com/tripod0429/peergos-app#readme",
+                "icon": "file://logo.png",
+                "iconUrl": "https://raw.githubusercontent.com/tripod0429/peergos-app/main/logo.png",
+                "mediaLinks": [
+                    "https://raw.githubusercontent.com/tripod0429/peergos-app/main/screenshots/drive.png",
+                    "https://raw.githubusercontent.com/tripod0429/peergos-app/main/screenshots/share.jpg",
+                    "https://raw.githubusercontent.com/tripod0429/peergos-app/main/screenshots/calendar.png"
+                ],
+                "tags": [
+                    "storage",
+                    "sync",
+                    "sharing",
+                    "social"
+                ],
+                "minBoxVersion": "10.0.0",
+                "manifestVersion": 2,
+                "httpPort": 8000,
+                "healthCheckPath": "/",
+                "memoryLimit": 2147483648,
+                "multiDomain": true,
+                "addons": {
+                    "localstorage": {
+                        "sqlite": {
+                            "paths": [
+                                "/app/data/peergos/login.sql",
+                                "/app/data/peergos/mutable.sql",
+                                "/app/data/peergos/social.sql",
+                                "/app/data/peergos/quotas.sql",
+                                "/app/data/peergos/space-usage.sql",
+                                "/app/data/peergos/space-requests.sql",
+                                "/app/data/peergos/link-counts.sql",
+                                "/app/data/peergos/server-messages.sql",
+                                "/app/data/peergos/serverids.sql",
+                                "/app/data/peergos/bats.sql",
+                                "/app/data/peergos/blockmetadata-v3.sql",
+                                "/app/data/peergos/partition-status.sql",
+                                "/app/data/peergos/transactions.sql",
+                                "/app/data/peergos/address-book.sqlite",
+                                "/app/data/peergos/.ipfs/datastore/records.sqlite"
+                            ]
+                        }
+                    }
+                },
+                "tcpPorts": {
+                    "IPFS_TCP_PORT": {
+                        "title": "P2P port (TCP)",
+                        "description": "Peer-to-peer connections from other Peergos servers and clients",
+                        "defaultValue": 4001,
+                        "containerPort": 4001
+                    }
+                },
+                "udpPorts": {
+                    "IPFS_UDP_PORT": {
+                        "title": "P2P port (QUIC/UDP)",
+                        "description": "Peer-to-peer QUIC connections from other Peergos servers and clients",
+                        "defaultValue": 4001,
+                        "containerPort": 4001
+                    }
+                },
+                "checklist": {
+                    "create-first-account": {
+                        "message": "Create the first account with the signup link from the app logs (search for `signup=true` and remove the `:8000` from the link)"
+                    },
+                    "add-wildcard-alias": {
+                        "message": "Add a wildcard alias for this app's own hostname, e.g. `*.peergos.example.com` for an app at peergos.example.com (not `*.example.com`). The built-in apps (PDF viewer, calendar, editor, ...) and third-party apps load from its subdomains, and Cloudron doesn't add the alias by itself"
+                    }
+                },
+                "dockerImage": "ghcr.io/tripod0429/peergos-app:1.2.0"
+            },
+            "creationDate": "Sat, 24 Oct 2026 19:37:14 GMT",
+            "ts": "Sat, 24 Oct 2026 19:37:14 GMT",
+            "publishState": "published"
         }
     }
 }
