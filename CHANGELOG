@@ -28,3 +28,7 @@
 * A restart during the very first start no longer leaves a server that can't start again
 * A clone of the app, or a backup imported into a new app, no longer starts as a second copy of the same Peergos node until you confirm it (see Backup and restore in the README)
 * The wildcard alias is required: the HTML viewer and third-party apps use hashed subdomains, so the docs no longer suggest individual aliases instead
+
+[1.3.0]
+* Update Peergos to 1.41.0 ([release notes](https://github.com/Peergos/web-ui/releases/tag/v1.41.0)), which includes security fixes
+* Garbage collection now runs just before each backup instead of every 12 hours, so it can't delete blocks while a backup is copied. If you don't back up the app, set PEERGOS_AUTO_GC=true in env.sh

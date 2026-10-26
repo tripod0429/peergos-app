@@ -18,8 +18,8 @@ RUN apt-get update && \
     rm -rf /var/cache/apt /var/lib/apt/lists && \
     java -version
 
-ARG PEERGOS_VERSION=1.40.0
-ARG PEERGOS_SHA256=eed1a5dc2bb14f69edd9c6bef41b5d9fe3b9a5e4938e5cee32e4f8d2bfb8e0cb
+ARG PEERGOS_VERSION=1.41.0
+ARG PEERGOS_SHA256=6fe3f77746347e99c7c2be74c2e9de4f6180945bf110a50a4e2135dd988fd88d
 
 # The native libraries are extracted at build time so Peergos never has to
 # write them to a temp dir at runtime (same approach as upstream's Containerfile).
@@ -39,7 +39,7 @@ RUN set -eux; \
 ENV LANG=C.UTF-8 \
     PEERGOS_PATH=/app/data/peergos
 
-COPY start.sh env.sh.template CloudronManifest.json /app/pkg/
-RUN chmod +x /app/pkg/start.sh
+COPY start.sh backup.sh env.sh.template CloudronManifest.json /app/pkg/
+RUN chmod +x /app/pkg/start.sh /app/pkg/backup.sh
 
 CMD [ "/app/pkg/start.sh" ]

@@ -69,7 +69,7 @@ done < <(find "${PEERGOS_PATH}" "${PEERGOS_PATH}/.ipfs/datastore" -maxdepth 1 -t
 # reads that file on later runs. Command-line flags override it, but a flag we
 # stop passing would linger, so drop the keys this script manages.
 if [[ -f "${config}" ]]; then
-    sed -i -E '/^(generate-token|ipfs-swarm-addrs|ipfs-announce-addresses|admin-usernames|default-quota)[[:space:]]*=/d' "${config}"
+    sed -i -E '/^(generate-token|ipfs-swarm-addrs|ipfs-announce-addresses|admin-usernames|default-quota|enable-gc)[[:space:]]*=/d' "${config}"
 fi
 
 # --- Signup token ------------------------------------------------------------
@@ -154,6 +154,9 @@ peergos_args=(
     -public-server true
     -public-domain "${CLOUDRON_APP_DOMAIN}"
     -quota-upload-limit-seconds "${PEERGOS_QUOTA_UPLOAD_LIMIT_SECONDS:-600}"
+    # Garbage collection runs from backup.sh before each backup. Peergos' own
+    # 12-hour timer could delete blocks while a backup is being copied.
+    -enable-gc "${PEERGOS_AUTO_GC:-false}"
     -generate-token "${generate_token}"
     -log-to-console true
     -log-to-file false
