@@ -29,6 +29,8 @@
 * A clone of the app, or a backup imported into a new app, no longer starts as a second copy of the same Peergos node until you confirm it (see Backup and restore in the README)
 * The wildcard alias is required: the HTML viewer and third-party apps use hashed subdomains, so the docs no longer suggest individual aliases instead
 
-[1.3.0]
+[1.3.1]
 * Update Peergos to 1.41.0 ([release notes](https://github.com/Peergos/web-ui/releases/tag/v1.41.0)), which includes security fixes
 * Garbage collection now runs just before each backup instead of every 12 hours, so it can't delete blocks while a backup is copied. If you don't back up the app, set PEERGOS_AUTO_GC=true in env.sh
+* Requires Cloudron 10.1.6 or later, which restores the database snapshots it takes during a backup instead of the live database files
+* A backup waits while Peergos is still sorting its blockstore by user, and retries a failed garbage collection once

@@ -6,7 +6,7 @@
   "description": "file://DESCRIPTION.md",
   "postInstallMessage": "file://POSTINSTALL.md",
   "changelog": "file://CHANGELOG",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "upstreamVersion": "1.41.0",
   "website": "https://peergos.org",
   "upstreamLicense": {
@@ -31,7 +31,7 @@
     "sharing",
     "social"
   ],
-  "minBoxVersion": "10.0.0",
+  "minBoxVersion": "10.1.6",
   "manifestVersion": 2,
   "httpPort": 8000,
   "healthCheckPath": "/",
