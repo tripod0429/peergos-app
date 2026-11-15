@@ -34,3 +34,9 @@
 * Garbage collection now runs just before each backup instead of every 12 hours, so it can't delete blocks while a backup is copied. If you don't back up the app, set PEERGOS_AUTO_GC=true in env.sh
 * Requires Cloudron 10.1.6 or later, which restores the database snapshots it takes during a backup instead of the live database files
 * A backup waits while Peergos is still sorting its blockstore by user, and retries a failed garbage collection once
+
+[1.4.0]
+* Update Peergos to 1.42.0 ([release notes](https://github.com/Peergos/web-ui/releases/tag/v1.42.0)), which includes security fixes. Upstream asks that desktop and mobile clients be updated too
+* Idle servers use much less CPU and write far less to disk
+* P2P over QUIC now uses a pure Java implementation (Kwik) instead of a native library
+* The global PKI server has a new peer ID. On the first start, Peergos switches the one saved in `/app/data/peergos/config` to it

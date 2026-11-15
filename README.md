@@ -4,7 +4,7 @@
 > This is an unofficial community package. It is not affiliated with or endorsed by Peergos or Cloudron.
 > The packaging (Dockerfile, scripts, manifest, tests and docs) was written with the help of Claude, an AI model by Anthropic, and tested on a real Cloudron server.
 
-Cloudron package for [Peergos](https://peergos.org) 1.38.0, built on `cloudron/base:6.0.0` with Ubuntu's OpenJDK 25 JRE.
+Cloudron package for [Peergos](https://peergos.org) 1.42.0, built on `cloudron/base:6.0.0` with Ubuntu's OpenJDK 25 JRE.
 
 To install it, add this URL under Community apps in your Cloudron dashboard settings:
 
@@ -129,7 +129,7 @@ export PEERGOS_ADMIN_USERNAMES=alice
 
 1. Download the new `Peergos.jar` from <https://github.com/Peergos/web-ui/releases> and run `sha256sum` on it.
 2. Update `PEERGOS_VERSION` and `PEERGOS_SHA256` in the `Dockerfile`.
-3. Bump `version` and `upstreamVersion` in `CloudronManifest.json` and add a `[version]` section to `CHANGELOG`.
+3. Bump `version` and `upstreamVersion` in `CloudronManifest.json`, add a `[version]` section to `CHANGELOG`, and update the Peergos version at the top of this README.
 4. Check that upstream's [Containerfile](https://github.com/Peergos/web-ui/blob/master/Containerfile) still uses Java 25 (see `AGENTS.md`).
 5. Run the local Podman test or `cloudron update`, then check the logs for the `not in localstorage.sqlite.paths` warning. Add any file it names to the manifest.
 6. Run the test suite, then publish.
@@ -172,8 +172,10 @@ Don't put `dockerImage` in `CloudronManifest.json`: `cloudron versions add` reco
 
 The browser runs in the official Selenium container, so nothing browser-related is installed on the host. A local Chrome also can't start on hosts that preload `hardened_malloc`, such as secureblue. On secureblue, allow the image once with `run0 podman image trust set -t accept docker.io/selenium/standalone-chromium`.
 
+The browser opens before the install and sits idle during it and during backups and restores. Selenium ends a session after 300 idle seconds by default, so `SE_NODE_SESSION_TIMEOUT` raises that.
+
 ```bash
-podman run -d --rm --name selenium -p 127.0.0.1:4444:4444 --shm-size=2g docker.io/selenium/standalone-chromium:4.49.0
+podman run -d --rm --name selenium -p 127.0.0.1:4444:4444 --shm-size=2g -e SE_NODE_SESSION_TIMEOUT=3600 docker.io/selenium/standalone-chromium:4.49.0
 cd test && npm install
 export SELENIUM_REMOTE_URL=http://127.0.0.1:4444
 LOCATION=peergos-test.example.com npm test                                   # builds on the server from this directory
