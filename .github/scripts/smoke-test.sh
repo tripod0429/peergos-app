@@ -64,8 +64,10 @@ started_twice() { (( $(count '==> Starting Peergos') >= 2 )); }
 
 cleanup
 "${docker}" volume create "${name}" > /dev/null
+# exec: Docker and Podman mount --tmpfs noexec by default, and Cloudron's /tmp
+# isn't. sqlite-jdbc extracts its native library to /tmp and loads it from there.
 "${docker}" run -d --name "${name}" \
-    --read-only --tmpfs /tmp --tmpfs /run \
+    --read-only --tmpfs /tmp:exec --tmpfs /run:exec \
     -v "${name}:/app/data" \
     -e CLOUDRON_APP_DOMAIN="${host}" \
     -e PEERGOS_PUBLIC_IP=none \

@@ -44,8 +44,9 @@ Build and run with the same read-only filesystem Cloudron uses:
 podman build --format docker -t peergos-cloudron .
 podman volume create peergos-test
 
+# exec, as on Cloudron: sqlite-jdbc extracts its native library to /tmp and loads it from there
 podman run --rm --name peergos \
-  --read-only --tmpfs /tmp --tmpfs /run \
+  --read-only --tmpfs /tmp:exec --tmpfs /run:exec \
   -v peergos-test:/app/data \
   -e CLOUDRON_APP_DOMAIN=peergos.localhost \
   -e PEERGOS_PUBLIC_IP=none \
