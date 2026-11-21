@@ -10,7 +10,7 @@ LABEL org.opencontainers.image.source="https://github.com/tripod0429/peergos-app
 RUN mkdir -p /app/code/native-libs /app/pkg
 WORKDIR /app/code
 
-# Peergos needs Java >= 25 (upstream's image uses eclipse-temurin:25-jre).
+# Peergos needs Java >= 25 (upstream's image uses Azul Zulu 25).
 # cloudron/base turns off recommended packages, so libharfbuzz0b, which the
 # JRE's font library links against, has to be named.
 RUN apt-get update && \
@@ -18,8 +18,8 @@ RUN apt-get update && \
     rm -rf /var/cache/apt /var/lib/apt/lists && \
     java -version
 
-ARG PEERGOS_VERSION=1.42.0
-ARG PEERGOS_SHA256=2d8e5be5f21967acce4ced801cbd2ca73797ace9d404808b8760e7c4be5c7d98
+ARG PEERGOS_VERSION=1.43.0
+ARG PEERGOS_SHA256=9f322a277fe88ef021e4e275367489a998ab2f47d7036a3b7b3cfbc913dd0700
 
 # The native libraries are extracted at build time so Peergos never has to
 # write them to a temp dir at runtime (same approach as upstream's Containerfile).

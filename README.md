@@ -4,7 +4,7 @@
 > This is an unofficial community package. It is not affiliated with or endorsed by Peergos or Cloudron.
 > The packaging (Dockerfile, scripts, manifest, tests and docs) was written with the help of Claude, an AI model by Anthropic, and tested on a real Cloudron server.
 
-Cloudron package for [Peergos](https://peergos.org) 1.42.0, built on `cloudron/base:6.0.0` with Ubuntu's OpenJDK 25 JRE.
+Cloudron package for [Peergos](https://peergos.org) 1.43.0, built on `cloudron/base:6.0.0` with Ubuntu's OpenJDK 25 JRE.
 
 To install it, add this URL under Community apps in your Cloudron dashboard settings:
 
