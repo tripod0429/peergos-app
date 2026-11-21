@@ -1,75 +1,193 @@
-# Builds the image on every push to main and every pull request, so a broken
-# Dockerfile shows up before a release. A v<version> tag also pushes the image
-# to ghcr.io as <version>, ready for `cloudron versions add --image`.
+# Builds and smoke-tests the image on every pull request and every push to main
+# (.github/actions/build).
+#
+# A push to main whose CloudronManifest.json version isn't in CloudronVersions.json
+# yet publishes that version: it adds a CHANGELOG section with upstream's release
+# notes if there isn't one, pushes the image to ghcr.io, adds the version to
+# CloudronVersions.json, tags the commit the image was built from, and commits
+# CHANGELOG and CloudronVersions.json. Pull requests and manual dry runs show the
+# CHANGELOG section that would be published in the job summary.
+#
+# Only the publish job gets write access, and only when it will publish from
+# main. Every other run executes the branch's scripts with a read-only token.
 name: Build image
 
 on:
   push:
     branches: [main]
-    tags: ['v*']
   pull_request:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Show what would be published, without pushing anything
+        type: boolean
+        default: true
+
+# Runs on main queue up, so releases happen one at a time. A newer push to a
+# pull request cancels its older run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Without a shell named, steps run as "bash -e", and a failing command in the
+# middle of a pipeline goes unnoticed. "shell: bash" adds -o pipefail.
+defaults:
+  run:
+    shell: bash
 
 jobs:
-  build:
+  # Reads the two JSON files, and runs nothing from the branch
+  plan:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      publish: ${{ steps.plan.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+
+      - name: Decide whether to publish
+        id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          version=$(jq -r .version CloudronManifest.json)
+          new=$(jq --arg v "${version}" '.versions | has($v) | not' CloudronVersions.json)
+          publish=false
+          if [[ "${new}" == true && "${GITHUB_REF}" == refs/heads/main ]]; then
+            case "${EVENT}" in
+              push) publish=true ;;
+              workflow_dispatch) [[ "${DRY_RUN}" == true ]] || publish=true ;;
+            esac
+          fi
+          echo "publish=${publish}" >> "$GITHUB_OUTPUT"
+          echo "Version ${version}, new: ${new}, publish: ${publish}"
+
+  # Pull requests, pushes that don't change the version, dry runs and manual
+  # runs on other branches
+  build:
+    needs: plan
+    if: needs.plan.outputs.publish != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+
+      - uses: ./.github/actions/build
+
+  publish:
+    needs: plan
+    if: needs.plan.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
       packages: write
     env:
-      IMAGE: ghcr.io/${{ github.repository }}
-      RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') }}
+      # renovate: datasource=npm depName=cloudron
+      CLOUDRON_CLI_VERSION: 9.0.4
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          # main as it is now, not the pushed commit: a queued release then
+          # sees the publish commit of the release before it.
+          ref: ${{ github.ref }}
 
-      - name: Read version from CloudronManifest.json
-        id: version
+      # main can have moved since the plan job looked, so every step from here
+      # on checks this build's own outputs.new as well
+      - uses: ./.github/actions/build
+        id: build
+
+      # A tag on another commit could be anything, so the run stops before
+      # pushing anything and leaves it to you. A tag on this commit is from an
+      # earlier attempt at this release.
+      - name: Check the release tag
+        id: tag
+        if: steps.build.outputs.new == 'true'
+        env:
+          VERSION: ${{ steps.build.outputs.version }}
         run: |
-          version=$(jq -r .version CloudronManifest.json)
-          echo "version=${version}" >> "$GITHUB_OUTPUT"
-          if [[ "${RELEASE}" == true && "${GITHUB_REF_NAME}" != "v${version}" ]]; then
-            echo "::error::Tag ${GITHUB_REF_NAME} doesn't match version ${version} in CloudronManifest.json"
+          built=$(git rev-parse HEAD)
+          tag="v${VERSION}"
+          # A failed lookup must stop the run, not look like a missing tag
+          refs=$(git ls-remote origin "refs/tags/${tag}" "refs/tags/${tag}^{}")
+          # An annotated tag gets a second, peeled (^{}) line with its commit
+          tagged=$(awk 'END { print $1 }' <<< "${refs}")
+          if [[ -n "${tagged}" && "${tagged}" != "${built}" ]]; then
+            echo "::error::Tag ${tag} points to ${tagged}, not to ${built}, which this run built. If it's left from a failed release, delete it (git push origin :refs/tags/${tag}) and rerun. Otherwise bump the version."
             exit 1
           fi
-
-      - uses: docker/setup-buildx-action@v4
+          if [[ -n "${tagged}" ]]; then
+            echo "Tag ${tag} is already on ${built}"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: docker/login-action@v4
-        if: env.RELEASE == 'true'
+        if: steps.build.outputs.new == 'true'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # A published version's image must never change under the people who installed it
-      - name: Refuse to overwrite an existing release
-        if: env.RELEASE == 'true'
-        run: |
-          if docker manifest inspect "${IMAGE}:${{ steps.version.outputs.version }}" > /dev/null 2>&1; then
-            echo "::error::${IMAGE}:${{ steps.version.outputs.version }} already exists. Bump the version instead."
-            exit 1
-          fi
+      # Only versions that aren't in CloudronVersions.json get this far, so this
+      # never replaces an image anyone was offered. Every step from here on can
+      # be rerun: the version stays unpublished until the last step succeeds.
+      - name: Push the image
+        if: steps.build.outputs.new == 'true'
+        env:
+          IMAGE: ${{ steps.build.outputs.image }}
+        run: docker push "${IMAGE}"
 
-      - uses: docker/build-push-action@v7
-        id: build
-        with:
-          context: .
-          platforms: linux/amd64
-          push: ${{ env.RELEASE == 'true' }}
-          tags: ${{ env.IMAGE }}:${{ steps.version.outputs.version }}
-          # A plain single-platform image, the same as a local podman push. Without
-          # this, buildx wraps it in an index with an extra attestation entry.
-          provenance: false
-
-      - name: Summary
-        if: env.RELEASE == 'true'
+      # Cloudron servers pull without credentials
+      - name: Check the image can be pulled anonymously
+        if: steps.build.outputs.new == 'true'
+        env:
+          IMAGE: ${{ steps.build.outputs.image }}
         run: |
-          {
-            echo "Pushed \`${IMAGE}:${{ steps.version.outputs.version }}\` (digest \`${{ steps.build.outputs.digest }}\`)."
-            echo
-            echo "Next: run the tests against it, then:"
-            echo
-            echo '```'
-            echo "cloudron versions add --image ${IMAGE}:${{ steps.version.outputs.version }}"
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+          docker logout ghcr.io
+          for attempt in 1 2 3 4 5 6; do
+            if docker manifest inspect "${IMAGE}" > /dev/null; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::${IMAGE} can't be pulled without credentials. Make the package public in its GitHub settings, then rerun this job."
+          exit 1
+
+      - name: Add the version to CloudronVersions.json
+        if: steps.build.outputs.new == 'true'
+        env:
+          IMAGE: ${{ steps.build.outputs.image }}
+        run: |
+          npm install -g "cloudron@${CLOUDRON_CLI_VERSION}"
+          cloudron versions add --image "${IMAGE}"
+          cloudron versions verify
+
+      # Before the publish commit, so a failed tag leaves the version
+      # unpublished and a rerun tries again
+      - name: Tag the commit the image was built from
+        if: steps.build.outputs.new == 'true' && steps.tag.outputs.exists != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.build.outputs.version }}
+        run: gh api "repos/${GITHUB_REPOSITORY}/git/refs" -f ref="refs/tags/v${VERSION}" -f sha="$(git rev-parse HEAD)" > /dev/null
+
+      - name: Commit CHANGELOG and CloudronVersions.json
+        if: steps.build.outputs.new == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE: ${{ steps.build.outputs.image }}
+          VERSION: ${{ steps.build.outputs.version }}
+        run: |
+          commit=$(.github/scripts/commit-files.sh "Publish ${VERSION}" CHANGELOG CloudronVersions.json)
+          echo "Published ${VERSION}: image \`${IMAGE}\`, commit ${commit}, tag \`v${VERSION}\` on $(git rev-parse HEAD)." >> "$GITHUB_STEP_SUMMARY"

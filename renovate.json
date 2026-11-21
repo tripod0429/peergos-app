@@ -1,0 +1,57 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^Dockerfile$/"],
+      "matchStrings": [
+        "ARG PEERGOS_TAG=(?<currentValue>v\\S+)\\s+ARG PEERGOS_SHA256=(?<currentDigest>[0-9a-f]{64})"
+      ],
+      "depNameTemplate": "Peergos/web-ui",
+      "datasourceTemplate": "github-release-attachments"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^CloudronManifest\\.json$/", "/^README\\.md$/"],
+      "matchStrings": [
+        "\"upstreamVersion\": \"(?<currentValue>[0-9.]+)\"",
+        "\\[Peergos\\]\\(https://peergos\\.org\\) (?<currentValue>[0-9.]+),"
+      ],
+      "depNameTemplate": "Peergos/web-ui",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.+)$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.github/workflows/[^/]+\\.ya?ml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+[A-Z_]+_VERSION: (?<currentValue>\\S+)"
+      ]
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "One PR per Peergos release, which also bumps the package version. Waiting a few hours gives upstream time to upload Peergos.jar and to follow up with a quick fix release.",
+      "matchPackageNames": ["Peergos/web-ui"],
+      "groupName": "Peergos",
+      "minimumReleaseAge": "6 hours",
+      "prBodyNotes": [
+        "**Merging this publishes it.** Before merging, check upstream's Java version in the [Containerfile history](https://github.com/Peergos/web-ui/commits/master/Containerfile), run the test suite against this branch, and read the CHANGELOG section in the build job's summary."
+      ],
+      "bumpVersions": [
+        {
+          "name": "package version",
+          "filePatterns": ["CloudronManifest.json"],
+          "matchStrings": ["\"version\": \"(?<version>[0-9.]+)\""],
+          "bumpType": "{{#if isMajor}}major{{else if isMinor}}minor{{else}}patch{{/if}}"
+        }
+      ]
+    },
+    {
+      "description": "The tests run with your Cloudron login, so a new test dependency waits a few days in case it turns out to be malicious.",
+      "matchManagers": ["npm"],
+      "minimumReleaseAge": "3 days"
+    }
+  ]
+}

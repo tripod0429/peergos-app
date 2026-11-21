@@ -1,0 +1,84 @@
+# The checks both jobs in build.yml run: reads the version, adds the CHANGELOG
+# section a new version would publish, then builds the image and smoke-tests it.
+# The image stays local; only the publish job pushes it.
+name: Build and smoke-test
+description: Build the image, smoke-test it, and prepare the CHANGELOG section for a new version
+
+outputs:
+  version:
+    description: version in CloudronManifest.json
+    value: ${{ steps.version.outputs.version }}
+  new:
+    description: true if CloudronVersions.json doesn't have this version yet
+    value: ${{ steps.version.outputs.new }}
+  image:
+    description: The local image, tagged as it would be pushed
+    value: ${{ steps.version.outputs.image }}
+
+runs:
+  using: composite
+  steps:
+    - name: Read the version
+      id: version
+      shell: bash
+      env:
+        REPOSITORY: ${{ github.repository }}
+      run: |
+        version=$(jq -r .version CloudronManifest.json)
+        upstream=$(jq -r .upstreamVersion CloudronManifest.json)
+        for v in "${version}" "${upstream}"; do
+          if [[ ! "${v}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::CloudronManifest.json has a version that isn't x.y.z: ${v}"
+            exit 1
+          fi
+        done
+        new=$(jq --arg v "${version}" '.versions | has($v) | not' CloudronVersions.json)
+        {
+          echo "version=${version}"
+          echo "upstream=${upstream}"
+          echo "new=${new}"
+          echo "image=ghcr.io/${REPOSITORY}:${version}"
+        } >> "$GITHUB_OUTPUT"
+        echo "Version ${version} (Peergos ${upstream}), new: ${new}"
+
+    - name: Add the CHANGELOG section
+      if: steps.version.outputs.new == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        VERSION: ${{ steps.version.outputs.version }}
+        UPSTREAM: ${{ steps.version.outputs.upstream }}
+      run: |
+        if grep -qxF "[${VERSION}]" CHANGELOG; then
+          echo "CHANGELOG already has a [${VERSION}] section"
+        else
+          from=$(jq -r '.versions | to_entries | map(select(.value.publishState == "published"))
+            | sort_by(.key | split(".") | map(tonumber)) | last.value.manifest.upstreamVersion' CloudronVersions.json)
+          section=$(.github/scripts/changelog.sh "${VERSION}" "${from}" "${UPSTREAM}")
+          printf '\n%s\n' "${section}" >> CHANGELOG
+        fi
+        {
+          echo "### CHANGELOG section for ${VERSION}"
+          echo
+          echo '```'
+          awk -v h="[${VERSION}]" '$0 == h { p = 1; print; next } p && /^\[/ { exit } p' CHANGELOG
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - uses: docker/setup-buildx-action@v4
+
+    - uses: docker/build-push-action@v7
+      with:
+        context: .
+        platforms: linux/amd64
+        load: true
+        tags: ${{ steps.version.outputs.image }}
+        # A plain single-platform image, the same as a local podman push. Without
+        # this, buildx wraps it in an index with an extra attestation entry.
+        provenance: false
+
+    - name: Smoke test
+      shell: bash
+      env:
+        IMAGE: ${{ steps.version.outputs.image }}
+      run: .github/scripts/smoke-test.sh "${IMAGE}"

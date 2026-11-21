@@ -23,7 +23,10 @@ https://raw.githubusercontent.com/tripod0429/peergos-app/main/CloudronVersions.j
 | `logo.png`, `screenshots/` | Icon and screenshots for the dashboard (from [Peergos/web-ui](https://github.com/Peergos/web-ui), GPL-3.0) |
 | `test/` | Browser test of the app's life cycle on a real Cloudron |
 | `AGENTS.md` | Runtime dependencies, with upstream sources |
-| `.github/workflows/build.yml` | Builds the image on each push; pushes it to ghcr.io on a `v<version>` tag |
+| `.github/workflows/build.yml` | Builds and smoke-tests the image on each push and pull request; publishes a new version when it reaches `main` |
+| `.github/actions/build/` | The build and smoke test that both of the workflow's jobs run |
+| `.github/scripts/` | The workflow's smoke test, CHANGELOG generator and signed commit helper |
+| `renovate.json` | Renovate config: a PR for each Peergos release, plus the base image, GitHub Actions and test dependencies |
 
 ## Local test with Podman (secureblue)
 
@@ -67,6 +70,8 @@ Things to check:
 * The first start prints a `signup=true&token=...` line. Stop and start the container again: there should be no new token, and the `Starting Nabu ... peerid:` line (logged at INFO) should show the same peer ID.
 * Nothing should fail with a read-only filesystem error. If something does, it is writing outside `/app/data`, `/tmp` or `/run`.
 * No `==> WARNING: ... is not in localstorage.sqlite.paths` line (see Backups below).
+
+`DOCKER=podman .github/scripts/smoke-test.sh peergos-cloudron` runs these checks automatically, the same way CI does.
 
 The local test can't exercise signup in a browser. Peergos builds its origin as `https://<public-domain>`, so the web UI only works properly behind Cloudron's TLS.
 
@@ -127,42 +132,46 @@ export PEERGOS_ADMIN_USERNAMES=alice
 
 ## Upgrading Peergos
 
-1. Download the new `Peergos.jar` from <https://github.com/Peergos/web-ui/releases> and run `sha256sum` on it.
-2. Update `PEERGOS_VERSION` and `PEERGOS_SHA256` in the `Dockerfile`.
-3. Bump `version` and `upstreamVersion` in `CloudronManifest.json`, add a `[version]` section to `CHANGELOG`, and update the Peergos version at the top of this README.
-4. Check that upstream's [Containerfile](https://github.com/Peergos/web-ui/blob/master/Containerfile) still uses Java 25 (see `AGENTS.md`).
-5. Run the local Podman test or `cloudron update`, then check the logs for the `not in localstorage.sqlite.paths` warning. Add any file it names to the manifest.
-6. Run the test suite, then publish.
+Renovate (Mend's hosted app, configured in `renovate.json`) opens a pull request a few hours after each Peergos release. It updates:
+
+* `PEERGOS_TAG` and `PEERGOS_SHA256` in the `Dockerfile`. Renovate downloads the release's `Peergos.jar` to compute the checksum.
+* `upstreamVersion` and `version` in `CloudronManifest.json`. A minor Peergos release bumps the minor package version, a patch release the patch version.
+* The Peergos version at the top of this README.
+
+The PR's build job builds the image and runs the smoke test, which also fails on a `not in localstorage.sqlite.paths` warning. Its summary shows the CHANGELOG section that merging will publish.
+
+Before merging:
+
+1. Check that upstream's [Containerfile](https://github.com/Peergos/web-ui/blob/master/Containerfile) still uses Java 25 (see `AGENTS.md`). The smoke test fails if `Peergos.jar` needs a newer Java than the image has, but not if upstream merely moved to one.
+2. Run the test suite against the PR's branch (`renovate/peergos`, see Running tests). Without `IMAGE` it builds on the server from your checkout. Set `VERSIONS_URL` to also test the update from the published version.
+3. If the smoke test named a new database, add it to `localstorage.sqlite.paths` in the manifest on the PR's branch. Renovate leaves a PR alone once someone else has pushed to it.
+
+Merging publishes the version (see Publishing).
+
+Renovate's other PRs (the `cloudron/base` image, GitHub Actions, test dependencies) don't change `version`, so merging them publishes nothing: a base image update ships with the next release. To ship one sooner, bump `version` and add a `[version]` section to `CHANGELOG` in its PR.
 
 ## Publishing
 
 Images go to GitHub's container registry (`ghcr.io/tripod0429/peergos-app`). `cloudron builder` isn't used: it only works with Cloudron's own registry app.
 
-`.github/workflows/build.yml` builds the image on every push to `main` and every pull request. A `v<version>` tag also pushes it, after checking that the tag matches `version` in `CloudronManifest.json` and that the image tag doesn't exist yet. A published image never changes, so a fix always needs a new version.
+`.github/workflows/build.yml` builds the image and runs `.github/scripts/smoke-test.sh` on every pull request and every push to `main`. When `main` gets a `version` that `CloudronVersions.json` doesn't have yet, the same run publishes it:
+
+1. If `CHANGELOG` has no `[version]` section, `.github/scripts/changelog.sh` adds one. It has a line that links the release notes, then upstream's notes for every Peergos release since the last published version. The notes are verbatim except that blank lines are dropped and lines that aren't list items become one, because a line that starts with `[` ends a section for Cloudron's parser. If Peergos didn't change, there's nothing to copy and the run fails: write the section yourself.
+2. Builds the image, smoke-tests it, pushes it, and checks that it can be pulled without credentials, as Cloudron servers do.
+3. Runs `cloudron versions add --image …` and `cloudron versions verify`.
+4. Tags the commit the image was built from as `v<version>`, then commits `CHANGELOG` and `CloudronVersions.json` as "Publish \<version\>" through GitHub's API, which signs the commit. The version only counts as published once that commit is on `main`.
+
+Only a run that publishes from `main` gets a token that can push images, tags and commits. A first job decides that from `CloudronManifest.json` and `CloudronVersions.json` alone. Pull requests, dry runs, runs on other branches and pushes that don't change the version run the branch's scripts with a read-only token.
+
+So a release is any PR that bumps `version`: Renovate's, or one of yours with a `[version]` section in `CHANGELOG`. Don't push a version bump straight to `main` without running the tests first.
+
+Only versions that aren't in `CloudronVersions.json` yet are ever pushed, so an image someone was offered never changes, and a fix always needs a new version. A run that fails before the publish commit leaves the version unpublished, so a rerun starts over. It pushes the image again and accepts a `v<version>` tag that's already on the commit it built. A tag on any other commit, which could be anything, stops the run before it pushes anything: delete the tag if it's left from a failed release, or bump the version. To retry, rerun the failed job, or use Run workflow under Actions with "dry run" unticked. With it ticked (the default), Run workflow only shows the CHANGELOG section it would publish.
+
+The workflow commits to `main` and creates the tag directly with its own token. So a rule on `main` that requires pull requests or status checks rejects the publish commit, and a rule that restricts creating tags rejects the tag. A rule that requires signed commits is fine, because GitHub signs the commit. Leave those rules off: nothing merges by itself, and a PR shows whether its build passed either way.
 
 Run `cloudron versions init` once to create `CloudronVersions.json`; it should add no manifest fields.
 
-Each release:
-
-1. Bump `version` (and `upstreamVersion` for a Peergos update) in `CloudronManifest.json`, add a `[version]` section to `CHANGELOG`, then commit and push.
-2. Tag the release:
-
-   ```bash
-   version=$(jq -r .version CloudronManifest.json)
-   git tag "v$version" && git push origin "v$version"
-   ```
-
-3. Cloudron servers pull the image without credentials. When the workflow publishes it from this public repo, the package is public too; that was the case for 1.0.0. If a pull fails with "unauthorized", check the package's visibility in its GitHub settings.
-4. Run the tests against the pushed image (`IMAGE=ghcr.io/tripod0429/peergos-app:$version`, see below).
-5. Publish:
-
-   ```bash
-   cloudron versions add --image ghcr.io/tripod0429/peergos-app:$version
-   cloudron versions verify
-   git add CloudronVersions.json && git commit -m "Release $version" && git push
-   ```
-
-Without the workflow, `podman login ghcr.io` (with a classic token that has `write:packages`), `podman build --format docker -t ghcr.io/tripod0429/peergos-app:$version .` and `podman push …` do the same as step 2.
+Without the workflow: `podman login ghcr.io` (with a classic token that has `write:packages`), `podman build --format docker -t ghcr.io/tripod0429/peergos-app:$version .`, `podman push …`, then `cloudron versions add --image ghcr.io/tripod0429/peergos-app:$version`, `cloudron versions verify`, and commit and tag.
 
 Don't put `dockerImage` in `CloudronManifest.json`: `cloudron versions add` records it in `CloudronVersions.json`. To pull a bad release, use `cloudron versions revoke`, then publish a fixed version.
 

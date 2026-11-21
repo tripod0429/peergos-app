@@ -1,8 +1,8 @@
 # Cloudron package for Peergos (https://peergos.org)
 #
-# Pinned inputs. To upgrade Peergos, change PEERGOS_VERSION and PEERGOS_SHA256
-# (sha256sum of the release's Peergos.jar), and bump "version" and
-# "upstreamVersion" in CloudronManifest.json (see README, "Upgrading Peergos").
+# Pinned inputs. Renovate updates PEERGOS_TAG and PEERGOS_SHA256 (sha256sum of
+# the release's Peergos.jar) together with "version" and "upstreamVersion" in
+# CloudronManifest.json (see renovate.json and README, "Upgrading Peergos").
 FROM cloudron/base:6.0.0@sha256:9bed4c8fa880645f8e669041ee28febe941481d00e9445e3e5a5483cb541d09b
 
 LABEL org.opencontainers.image.source="https://github.com/tripod0429/peergos-app"
@@ -18,7 +18,8 @@ RUN apt-get update && \
     rm -rf /var/cache/apt /var/lib/apt/lists && \
     java -version
 
-ARG PEERGOS_VERSION=1.43.0
+# The release's git tag, with its "v": Renovate looks the checksum up by tag
+ARG PEERGOS_TAG=v1.43.0
 ARG PEERGOS_SHA256=9f322a277fe88ef021e4e275367489a998ab2f47d7036a3b7b3cfbc913dd0700
 
 # The native libraries are extracted at build time so Peergos never has to
@@ -27,7 +28,7 @@ RUN set -eux; \
     arch="$(dpkg --print-architecture)"; \
     if [ "$arch" != "amd64" ]; then echo "Only amd64 is supported, got $arch"; exit 1; fi; \
     curl -fsSL -o /app/code/Peergos.jar \
-        "https://github.com/Peergos/web-ui/releases/download/v${PEERGOS_VERSION}/Peergos.jar"; \
+        "https://github.com/Peergos/web-ui/releases/download/${PEERGOS_TAG}/Peergos.jar"; \
     echo "${PEERGOS_SHA256}  /app/code/Peergos.jar" | sha256sum -c -; \
     unzip -j -o -q /app/code/Peergos.jar \
         native-lib/linux/amd64/libtweetnacl.so \
